@@ -11,7 +11,7 @@ contract Subscription {
     using PRBMathSD59x18 for int256;
     using PRBMathUD60x18 for uint256;
 
-    IERC20 public aToken;
+    IAToken public aToken;
     uint256 public constant rateBase = 100;
     uint256 public minDepositRatio = 12;
 
@@ -19,7 +19,7 @@ contract Subscription {
         address _aTokenAddress
     )
     {
-        aToken = IERC20(_aTokenAddress);
+        aToken = IAToken(_aTokenAddress);
     }
 
     struct Agreement {
@@ -68,7 +68,7 @@ contract Subscription {
 
       agreement.receiver = receiver;
       agreement.payor = payor;
-      agreement.token = token;
+      agreement.token = aToken.UNDERLYING_ASSET_ADDRESS();
       agreement.payRate = annualAmount.div(365.25 days);
       agreement.lastPayment = startDate > 0 ? startDate : block.timestamp;
       agreement.description = description;
@@ -91,7 +91,7 @@ contract Subscription {
 
     function getAnnuityDue(uint256 periodicPayment, uint256 rate, uint256 elapsedTime)
         public
-        view
+        pure
         returns (uint256)
     {
         uint256 interestRate = rate.div(rateBase);
