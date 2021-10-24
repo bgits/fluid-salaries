@@ -6,6 +6,7 @@ const iERC20 = require("../artifacts/contracts/interfaces/IERC20.sol/IERC20.json
 
 use(solidity);
 
+const LENDING_POOL_MAINNET = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9";
 const AUSDC_MAINNET = "0xBcca60bB61934080951369a648Fb03DF4F96263C";
 const toWei = x => ethers.utils.parseEther(x);
 const annuityDue = (P, R, T) => {
@@ -33,8 +34,8 @@ describe("Subscriptions", function () {
       const Subscription = await ethers.getContractFactory("Subscription");
       const dai = await deployMockContract(signers[0], iERC20.abi);
 
-      myContract = await YourContract.deploy(AUSDC_MAINNET);
-      subscriptionContract = await Subscription.deploy(AUSDC_MAINNET);
+      myContract = await YourContract.deploy(AUSDC_MAINNET, LENDING_POOL_MAINNET);
+      subscriptionContract = await Subscription.deploy(AUSDC_MAINNET, LENDING_POOL_MAINNET);
     });
 
     it("Should compute annuity due correctly", async function () {

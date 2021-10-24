@@ -2,13 +2,15 @@
 
 //const { ethers } = require("hardhat");
 
+const LENDING_POOL_MAINNET = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9";
+const AUSDC_MAINNET = "0xBcca60bB61934080951369a648Fb03DF4F96263C";
 module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
   await deploy("YourContract", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    args: ["0xaAC799eC2d00C013f1F11c37E654e59B0429DF6A"],
+    args: [AUSDC_MAINNET, LENDING_POOL_MAINNET],
     log: true,
   });
 

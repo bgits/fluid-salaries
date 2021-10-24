@@ -6,20 +6,34 @@ import "./math/PRBMathSD59x18.sol";
 import "./math/PRBMathUD60x18.sol";
 import "./interfaces/IAToken.sol";
 import "./interfaces/IERC20.sol";
+import "./interfaces/ILendingPool.sol";
 
 contract Subscription {
     using PRBMathSD59x18 for int256;
     using PRBMathUD60x18 for uint256;
 
     IAToken public aToken;
+    ILendingPool public lendingPool;
     uint256 public constant rateBase = 100;
+    uint256 public immutable ONE = PRBMathUD60x18.scale();
     uint256 public minDepositRatio = 12;
+    uint256 public totalBalances;
+    uint256 public interestIndex = PRBMathUD60x18.scale();
+
+    /**
+     * @dev map: keccask256(...args) -> Agreement
+     */
+    mapping(bytes32 => Agreement) agreements;
+    mapping(address => uint256) public payorBalances;
+    mapping(uint256 => uint256) public interestIndexSnapshots;
 
     constructor(
-        address _aTokenAddress
+       address _aTokenAddress,
+       address _lendingPool
     )
     {
         aToken = IAToken(_aTokenAddress);
+        lendingPool = ILendingPool(_lendingPool);
     }
 
     struct Agreement {
@@ -34,6 +48,14 @@ contract Subscription {
         bool terminated;
     }
 
+    event SupplyReceived(
+       address account,
+       uint256 amount,
+       uint256 startingBalance,
+       uint256 newBalance,
+       uint256 totalBalances
+    );
+
     event AddAgreement(
         bytes32 agreementId,
         address indexed receiver,
@@ -43,11 +65,6 @@ contract Subscription {
         uint256 startDate,
         string indexed description
     );
-
-    /**
-     * @dev map: keccask256(...args) -> Agreement
-     */
-    mapping(bytes32 => Agreement) agreements;
 
     function createAgreement(
        address receiver,
@@ -63,7 +80,7 @@ contract Subscription {
       require(annualAmount > 0, "AnnualAmount can not be zero");
       bytes32 agreementId = keccak256(abi.encode(receiver, payor, token, annualAmount, startDate, description));
       uint supplyAmount = annualAmount / minDepositRatio;
-      //supply(supplyAmount);
+      supply(supplyAmount);
       Agreement storage agreement = agreements[agreementId];
 
       agreement.receiver = receiver;
@@ -102,5 +119,37 @@ contract Subscription {
         uint256 result = periodicPayment.mul(reduced);
         return result;
     }
-    // get interest is balanceOf - scaledBalanceOf
+
+    function supply(uint256 amount) public {
+        uint256 balance = payorBalances[msg.sender];
+        bool tokenTransfer = IERC20(aToken.UNDERLYING_ASSET_ADDRESS()).transferFrom(msg.sender, address(this), amount);
+        require(tokenTransfer, "Failed to transfer token");
+        updateInterestIndex();
+        lendingPool.deposit(aToken.UNDERLYING_ASSET_ADDRESS(), amount, address(this), 0);
+        uint256 newBalance = balance + amount;
+        payorBalances[msg.sender] = newBalance;
+        totalBalances = getTotalAmount();
+        emit SupplyReceived(msg.sender, amount, balance, newBalance, totalBalances);
+    }
+
+    function updateInterestIndex() internal {
+        uint256 updatedInterestIndex = calculateInterestIndex();
+        interestIndexSnapshots[block.timestamp] = updatedInterestIndex;
+        interestIndex = updatedInterestIndex;
+    }
+
+    function calculateInterestIndex() view public returns (uint256){
+        uint256 totalAmount = getTotalAmount();
+        uint256 balances = totalBalances;
+        if (totalAmount == balances) {
+            return interestIndex;
+        }
+        uint256 totalInterest = totalAmount - balances;
+        uint256 totalReturn = totalInterest.div(balances);
+        return interestIndex.mul(ONE + totalReturn);
+    }
+
+    function getTotalAmount() view public returns (uint256) {
+        return aToken.balanceOf(address(this));
+    }
 }

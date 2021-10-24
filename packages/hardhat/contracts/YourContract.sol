@@ -95,7 +95,7 @@ contract YourContract {
 
     function getAnnuityDue(uint periodicPayment, uint rate, uint elapsedTime)
         public
-        view
+        pure
         returns (uint256)
     {
         uint256 interestRate = rate.div(rateBase);
